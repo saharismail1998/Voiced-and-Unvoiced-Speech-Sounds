@@ -1,0 +1,48 @@
+% إعدادات أساسية
+fs = 10000;  % Sampling frequency
+N = 1024;    % FFT length
+
+% إنشاء الصوت المركب
+t = 0:1/fs:1-1/fs;
+voiced = 0.7 * sin(2*pi*200*t);             % Voiced: 200 Hz sine wave
+unvoiced = 0.3 * randn(1, length(t));       % Unvoiced: white noise
+signal = [voiced(1:5000), zeros(1,1000), unvoiced(1:5000)];
+
+% استخراج الجزء المجهور (voiced)
+voiced_segment = signal(1:5000);
+
+% تطبيق نافذة Hamming
+x = voiced_segment .* hamming(length(voiced_segment))';
+
+% حساب السيبستروم
+X = abs(fft(x, N));
+X_log = log(X + eps);  % log spectrum
+c = real(ifft(X_log)); % real cepstrum
+
+% محور الكيفرينسي (Quefrency)
+quefrency = (0:length(c)-1) / fs * 1000;  % بالمللي ثانية
+
+% تحديد مجال الاهتمام: من 0 إلى 20 مللي ثانية
+range = 1:round(0.02 * fs);
+
+% رسم السيبستروم
+figure;
+plot(quefrency(range), c(range), 'LineWidth', 1.5);
+xlabel('Quefrency (ms)');
+ylabel('Cepstral Amplitude');
+title('Cepstrum of Voiced Segment');
+grid on;
+
+% تحديد القمة المرتبطة بالـ Pitch
+[min_pitch, max_pitch] = deal(round(fs/400), round(fs/50));  % تقريبًا من 50 إلى 400 Hz
+search_range = min_pitch:max_pitch;
+[~, q] = max(c(search_range));
+pitch_period = q + min_pitch - 1;
+pitch_freq = fs / pitch_period;
+
+% إبراز القمة على الرسم
+hold on;
+plot(pitch_period/fs*1000, c(pitch_period), 'ro', 'MarkerSize', 10, 'LineWidth', 2);
+text(pitch_period/fs*1000 + 1, c(pitch_period), ...
+    sprintf('%.0f Hz', pitch_freq), 'Color', 'red');
+
